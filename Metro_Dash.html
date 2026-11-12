@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>METRO DASH — Endless Runner</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07111f;color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;min-height:100vh;overflow:hidden}
+.wrap{width:min(100vw,560px);padding:10px;text-align:center}h1{margin:5px;color:#55efff;text-shadow:0 0 14px #00aeca;font-size:clamp(24px,6vw,36px)}
+.stats{display:flex;justify-content:space-around;background:#14243a;border:1px solid #2d6680;border-radius:12px;padding:9px;margin:8px 0;font-weight:bold}
+canvas{width:100%;height:auto;display:block;border:2px solid #3bd8ef;border-radius:14px;background:#101c2d;touch-action:none;box-shadow:0 0 22px #00b7d455}
+#overlay{position:fixed;inset:0;background:#020914d9;display:flex;align-items:center;justify-content:center;padding:20px}
+.panel{max-width:390px;width:100%;background:#14243a;border:2px solid #47d9ed;border-radius:18px;padding:22px;text-align:center;box-shadow:0 0 30px #00bde455}
+.panel h2{color:#61efff;margin:0 0 12px}button{border:0;border-radius:12px;background:#4ce5f1;color:#052033;font-weight:bold;font-size:17px;padding:12px 18px;margin:5px;cursor:pointer}
+.controls{display:flex;justify-content:center;gap:8px;margin-top:8px;flex-wrap:wrap}.controls button{min-width:64px;padding:10px 16px}.hint{color:#bdcce0;font-size:13px;margin:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🚇 METRO DASH</h1>
+<div class="stats"><span>🏆 <span id="score">0</span></span><span>🪙 <span id="coins">0</span></span><span>⚡ <span id="best">0</span></span></div>
+<canvas id="c" width="480" height="640"></canvas>
+<div class="controls">
+<button onclick="act('left')">⬅</button><button onclick="act('jump')">⬆ SAKRA</button><button onclick="act('slide')">⬇ EGIL</button><button onclick="act('right')">➡</button>
+</div>
+<p class="hint">Klaviatura: ← → yo‘lak, ↑ sakrash, ↓ egilish. Telefonda suring yoki tugmalardan foydalaning.</p>
+</div>
+<div id="overlay"><div class="panel"><h2>🚇 METRO DASH</h2><p>Metro yo‘laklarida yugur! To‘siqlardan sakra yoki egil, tangalarni yig‘ va rekord o‘rnat!</p><p>⬅ ➡ Yo‘lakni almashtir<br>⬆ To‘siqdan sakra<br>⬇ Pastki to‘siqdan egilib o‘t</p><button onclick="start()">▶ O‘YINNI BOSHLASH</button></div></div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d'),W=480,H=640;
+const scoreEl=document.getElementById('score'),coinsEl=document.getElementById('coins'),bestEl=document.getElementById('best'),overlay=document.getElementById('overlay');
+let lane=1,objects=[],score=0,coins=0,best=0,speed=5,frame=0,running=false,last=0,playerState='run',stateTime=0,raf=0;
+try{best=Number(localStorage.getItem('metrodashbest')||0)}catch(e){}bestEl.textContent=best;
+const xs=[130,240,350];
+function start(){cancelAnimationFrame(raf);lane=1;objects=[];score=0;coins=0;speed=5;frame=0;playerState='run';stateTime=0;running=true;last=0;overlay.style.display='none';update();raf=requestAnimationFrame(loop)}
+function update(){scoreEl.textContent=score;coinsEl.textContent=coins;bestEl.textContent=best}
+function act(a){if(!running)return;if(a==='left')lane=Math.max(0,lane-1);if(a==='right')lane=Math.min(2,lane+1);if(a==='jump'&&playerState==='run'){playerState='jump';stateTime=32}if(a==='slide'&&playerState==='run'){playerState='slide';stateTime=30}}
+document.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a')act('left');if(e.key==='ArrowRight'||e.key==='d')act('right');if(e.key==='ArrowUp'||e.key==='w'||e.key===' ')act('jump');if(e.key==='ArrowDown'||e.key==='s')act('slide')});
+let sx=0,sy=0;c.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY});c.addEventListener('pointerup',e=>{let dx=e.clientX-sx,dy=e.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;if(Math.abs(dx)>Math.abs(dy))act(dx>0?'right':'left');else act(dy<0?'jump':'slide')});
+function spawn(){
+ let l=Math.floor(Math.random()*3),r=Math.random();
+ if(r<.46)objects.push({type:'coin',lane:l,y:-30});
+ else if(r<.72)objects.push({type:'barrier',lane:l,y:-65});
+ else if(r<.87)objects.push({type:'low',lane:l,y:-65});
+ else objects.push({type:'train',lane:l,y:-100});
+ if(Math.random()<.55){let cl=Math.floor(Math.random()*3);for(let i=0;i<4;i++)objects.push({type:'coin',lane:cl,y:-130-i*48})}
+}
+function road(){
+ g.fillStyle='#101a2b';g.fillRect(0,0,W,H);
+ // distant city
+ for(let i=0;i<9;i++){let x=i*60-15;let h=75+(i*37%95);g.fillStyle=i%2?'#182b40':'#1d3046';g.fillRect(x,80-h,48,h);for(let y=100-h;y<70;y+=22){g.fillStyle='#f4c86b';g.fillRect(x+9,y,6,8);g.fillRect(x+27,y,6,8)}}
+ // tracks
+ g.fillStyle='#394454';g.beginPath();g.moveTo(65,100);g.lineTo(415,100);g.lineTo(480,640);g.lineTo(0,640);g.closePath();g.fill();
+ g.strokeStyle='#8a9aaa';g.lineWidth=5;g.beginPath();g.moveTo(130,100);g.lineTo(55,640);g.moveTo(350,100);g.lineTo(425,640);g.stroke();
+ for(let i=0;i<12;i++){let y=((i*65+frame*speed*1.7)%650);let p=(y+40)/680;let left=130-p*75,right=350+p*75;g.strokeStyle='#647387';g.lineWidth=2+p*3;g.beginPath();g.moveTo(left,y);g.lineTo(right,y);g.stroke()}
+ // lane dividers
+ g.strokeStyle='#a0b2c2';g.lineWidth=2;g.setLineDash([18,24]);g.beginPath();g.moveTo(204,100);g.lineTo(160,640);g.moveTo(276,100);g.lineTo(320,640);g.stroke();g.setLineDash([]);
+}
+function drawPlayer(){
+ let x=xs[lane],y=520,off=0;
+ if(playerState==='jump')off=-Math.sin((32-stateTime)/32*Math.PI)*105;
+ if(playerState==='slide'){}
+ y+=off;
+ // shadow
+ g.fillStyle='#050a12aa';g.beginPath();g.ellipse(x,590,29,9,0,0,7);g.fill();
+ if(playerState==='slide'){g.fillStyle='#24d6e9';g.fillRect(x-29,560,58,25);g.fillStyle='#ffd2a1';g.beginPath();g.arc(x+18,555,13,0,7);g.fill()}
+ else{
+  g.fillStyle='#24d6e9';g.fillRect(x-19,y+22,38,57);
+  g.fillStyle='#f4c99b';g.beginPath();g.arc(x,y+8,17,0,7);g.fill();
+  g.fillStyle='#24354a';g.fillRect(x-17,y-5,34,10);
+  g.fillStyle='#ffcf4d';g.fillRect(x-22,y+76,17,12);g.fillRect(x+5,y+76,17,12);
+  g.strokeStyle='#d5faff';g.lineWidth=5;g.beginPath();g.moveTo(x-17,y+36);g.lineTo(x-29,y+55);g.moveTo(x+17,y+36);g.lineTo(x+29,y+55);g.stroke();
+ }
+}
+function drawObjects(){
+ for(let o of objects){let x=xs[o.lane],y=o.y,scale=.45+y/800;g.save();g.translate(x,y);g.scale(scale,scale);
+ if(o.type==='coin'){g.fillStyle='#ffd43b';g.strokeStyle='#fff0a0';g.lineWidth=4;g.beginPath();g.arc(0,0,17,0,7);g.fill();g.stroke();g.fillStyle='#a66b00';g.font='bold 20px Arial';g.textAlign='center';g.fillText('$',0,7)}
+ if(o.type==='barrier'){g.fillStyle='#e34f50';g.fillRect(-35,-27,70,54);g.fillStyle='#ffdfb0';g.fillRect(-27,-18,54,9);g.fillRect(-27,8,54,9)}
+ if(o.type==='low'){g.fillStyle='#e9a43c';g.fillRect(-39,-12,78,24);g.fillStyle='#442d20';g.fillRect(-31,-9,9,18);g.fillRect(22,-9,9,18)}
+ if(o.type==='train'){g.fillStyle='#537a9b';g.fillRect(-42,-52,84,104);g.fillStyle='#aeeaff';g.fillRect(-30,-35,60,27);g.fillStyle='#26394c';g.fillRect(-30,5,60,35);g.fillStyle='#ffcf55';g.fillRect(-34,43,12,7);g.fillRect(22,43,12,7)}
+ g.restore()}
+}
+function loop(t){if(!running)return;let dt=Math.min((t-last)/16.67||1,2);last=t;frame+=dt;speed=Math.min(11,5+score/450);if(frame>35){spawn();frame=0}
+ road();for(let o of objects)o.y+=speed*dt;drawObjects();drawPlayer();
+ if(stateTime>0){stateTime-=dt;if(stateTime<=0)playerState='run'}
+ // collision zone
+ for(let o of objects){if(o.lane!==lane||o.y<490||o.y>590)continue;
+  if(o.type==='coin'){o.gone=true;coins++;score+=10;update()}
+  else if(o.type==='barrier'&&playerState!=='jump'){end();return}
+  else if(o.type==='low'&&playerState!=='slide'){end();return}
+  else if(o.type==='train'){end();return}
+ }
+ objects=objects.filter(o=>!o.gone&&o.y<700);
+ score+=Math.floor(dt);update();raf=requestAnimationFrame(loop)}
+function end(){running=false;if(score>best){best=score;try{localStorage.setItem('metrodashbest',best)}catch(e){}}update();overlay.innerHTML='<div class="panel"><h2>🚦 O‘YIN TUGADI!</h2><p>🏆 Ball: '+score+'</p><p>🪙 Tangalar: '+coins+'</p><p>⚡ Rekord: '+best+'</p><button onclick="start()">🔄 QAYTA O‘YNASH</button><button onclick="location.reload()">MENYU</button></div>';overlay.style.display='flex'}
+</script>
+</body></html>
