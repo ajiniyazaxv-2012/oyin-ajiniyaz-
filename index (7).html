@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON RUNNER</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080b1b;color:white;font-family:Arial;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}
+.game{width:min(95vw,500px);text-align:center}
+h1{color:#00f7ff;text-shadow:0 0 15px #00f7ff;margin:10px}
+.info{display:flex;justify-content:space-around;margin:10px}
+canvas{width:100%;height:auto;background:#10172e;border:3px solid #00eaff;border-radius:12px;box-shadow:0 0 25px #00eaff}
+button{background:#00d9ff;color:#00111b;border:0;padding:12px 22px;border-radius:9px;font-size:17px;font-weight:bold;margin:8px;cursor:pointer}
+button:hover{background:#fff}
+#message{position:absolute;top:43%;left:50%;transform:translate(-50%,-50%);background:#10172eee;padding:25px;border:2px solid #00eaff;border-radius:15px;width:85%;max-width:350px}
+#message h2{color:#00f7ff;margin-bottom:12px}
+.controls{display:flex;justify-content:center}
+small{color:#a9b8d9}
+</style>
+</head>
+<body>
+<div class="game">
+<h1>⚡ NEON RUNNER ⚡</h1>
+<div class="info">
+<b>🏆 Ball: <span id="score">0</span></b>
+<b>🪙 Tanga: <span id="coins">0</span></b>
+<b>❤️ Jon: <span id="lives">3</span></b>
+</div>
+<canvas id="game" width="450" height="600"></canvas>
+<div class="controls">
+<button onclick="move(-1)">⬅ CHAP</button>
+<button onclick="move(1)">O‘NG ➡</button>
+</div>
+<button onclick="restart()">🔄 QAYTA BOSHLASH</button>
+<br><small>Klaviaturada ← → tugmalari bilan boshqar.</small>
+</div>
+<div id="message">
+<h2>⚡ NEON RUNNER</h2>
+<p>To‘siqlardan qoch! Tangalarni yig‘! Eng yuqori ballni ol!</p>
+<button onclick="start()">▶ O‘YINNI BOSHLASH</button>
+</div>
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const scoreEl=document.getElementById("score"),coinsEl=document.getElementById("coins"),livesEl=document.getElementById("lives"),message=document.getElementById("message");
+let player,objects,score,coins,lives,running,frame,speed;
+function reset(){player={lane:1,y:510};objects=[];score=0;coins=0;lives=3;frame=0;speed=4;update()}
+function update(){scoreEl.textContent=score;coinsEl.textContent=coins;livesEl.textContent=lives}
+function laneX(lane){return 95+lane*130}
+function move(d){if(running)player.lane=Math.max(0,Math.min(2,player.lane+d))}
+document.addEventListener("keydown",e=>{if(e.key==="ArrowLeft"||e.key==="a")move(-1);if(e.key==="ArrowRight"||e.key==="d")move(1)});
+function drawRoad(){
+ ctx.fillStyle="#10172e";ctx.fillRect(0,0,450,600);ctx.fillStyle="#202b49";ctx.fillRect(25,0,400,600);
+ ctx.strokeStyle="#00eaff";ctx.lineWidth=3;ctx.strokeRect(25,0,400,600);
+ ctx.setLineDash([25,20]);ctx.lineWidth=3;ctx.strokeStyle="#65708e";
+ let offset=(frame*speed)%45;ctx.beginPath();ctx.moveTo(158,offset-45);ctx.lineTo(158,600);ctx.moveTo(292,offset-45);ctx.lineTo(292,600);ctx.stroke();ctx.setLineDash([])
+}
+function drawPlayer(){
+ let x=laneX(player.lane);ctx.shadowBlur=20;ctx.shadowColor="#00f7ff";ctx.fillStyle="#00eaff";ctx.fillRect(x-23,player.y,46,65);ctx.shadowBlur=0;
+ ctx.fillStyle="#071329";ctx.fillRect(x-14,player.y+10,28,16);ctx.fillStyle="white";ctx.fillRect(x-14,player.y+14,7,7);ctx.fillRect(x+7,player.y+14,7,7);
+ ctx.fillStyle="#ffcf33";ctx.fillRect(x-17,player.y+65,12,9);ctx.fillRect(x+5,player.y+65,12,9)
+}
+function spawn(){let lane=Math.floor(Math.random()*3);objects.push({lane,y:-50,type:Math.random()<0.35?"coin":"block"})}
+function drawObjects(){objects.forEach(o=>{let x=laneX(o.lane);if(o.type==="coin"){
+ ctx.shadowBlur=15;ctx.shadowColor="#ffe600";ctx.fillStyle="#ffe600";ctx.beginPath();ctx.arc(x,o.y,16,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle="#a56a00";ctx.font="bold 18px Arial";ctx.textAlign="center";ctx.fillText("$",x,o.y+6)
+ }else{ctx.shadowBlur=15;ctx.shadowColor="#ff3355";ctx.fillStyle="#ff3355";ctx.fillRect(x-27,o.y-22,54,45);ctx.shadowBlur=0;ctx.fillStyle="white";ctx.fillRect(x-17,o.y-12,34,6)}})}
+function start(){reset();running=true;message.style.display="none";loop()}
+function restart(){start()}
+function gameOver(){running=false;message.innerHTML=`<h2>💥 O‘YIN TUGADI!</h2><p>🏆 Ball: ${score}</p><p>🪙 Tanga: ${coins}</p><button onclick="start()">🔄 QAYTA O‘YNASH</button>`;message.style.display="block"}
+function loop(){
+ if(!running)return;frame++;if(frame%45===0)spawn();if(frame%5===0){score++;speed=Math.min(9,4+score/300)}
+ drawRoad();objects.forEach(o=>o.y+=speed);drawObjects();drawPlayer();
+ objects=objects.filter(o=>{
+  if(o.y>player.y-10&&o.y<player.y+70&&o.lane===player.lane){
+   if(o.type==="coin"){coins++;score+=10;update();return false}
+   lives--;update();if(lives<=0){gameOver();return false}return false
+  }
+  return o.y<650
+ });
+ update();requestAnimationFrame(loop)
+}
+reset();drawRoad();drawPlayer();
+</script>
+</body>
+</html>
